@@ -1,0 +1,4 @@
+debug_responses/
+file*.log
+# Ignore all log files
+*.log
