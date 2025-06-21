@@ -1,0 +1,20 @@
+2025-06-17 13:33:35.880 | INFO     | __main__:<module>:38 - Sending SOAP request to the service.
+2025-06-17 13:33:37.185 | INFO     | __main__:<module>:42 - Response Status Code: 200
+2025-06-17 13:33:37.185 | INFO     | __main__:<module>:43 - Response received successfully.
+2025-06-17 13:34:28.682 | INFO     | __main__:<module>:38 - Sending SOAP request to the service.
+2025-06-17 13:34:29.486 | INFO     | __main__:<module>:42 - Response Status Code: 200
+2025-06-17 13:34:29.487 | INFO     | __main__:<module>:43 - Response received successfully.
+2025-06-17 13:34:29.682 | INFO     | __main__:<module>:72 - Data saved successfully to integrated_configuration_response.xlsx
+2025-06-17 13:35:45.522 | INFO     | __main__:<module>:38 - Sending SOAP request to the service.
+2025-06-17 13:35:46.300 | INFO     | __main__:<module>:42 - Response Status Code: 200
+2025-06-17 13:35:46.301 | INFO     | __main__:<module>:43 - Response received successfully.
+2025-06-17 13:35:46.558 | INFO     | __main__:<module>:72 - Data saved successfully to integrated_configuration_response.xlsx
+2025-06-17 13:36:38.848 | INFO     | __main__:<module>:38 - Sending SOAP request to the service.
+2025-06-17 13:36:39.494 | INFO     | __main__:<module>:42 - Response Status Code: 200
+2025-06-17 13:36:39.495 | INFO     | __main__:<module>:43 - Response received successfully.
+2025-06-17 13:36:39.855 | INFO     | __main__:<module>:72 - Data saved successfully to integrated_configuration_response.xlsx
+2025-06-17 13:38:25.139 | INFO     | __main__:<module>:38 - Sending SOAP request to the service.
+2025-06-17 13:38:25.700 | INFO     | __main__:<module>:42 - Response Status Code: 200
+2025-06-17 13:38:25.701 | INFO     | __main__:<module>:43 - Response received successfully.
+2025-06-17 13:38:26.069 | INFO     | __main__:<module>:80 - Data saved successfully to integrated_configuration_response.xlsx
+2025-06-17 13:38:26.070 | INFO     | __main__:<module>:83 - Process completed.
