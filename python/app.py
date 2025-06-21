@@ -256,7 +256,7 @@ def extract_and_store(endpoint_key, query_tag, result_tag, model_cls, row_builde
         # Log a sample of the data
         df = pd.read_sql_table(model_cls.__tablename__, engine)
         logger.info(f"✅ Successfully stored {len(df)} rows in '{model_cls.__tablename__}'. Sample data:\n" +
-            tabulate(df.head(5), headers="keys", tablefmt="pretty"))
+            tabulate(df.head(1), headers="keys", tablefmt="pretty",maxcolwidths=400,maxheadercolwidths=400))
 
         return {"status": "success", "rows_processed": len(results)}
 
