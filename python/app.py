@@ -338,9 +338,9 @@ def extract_communication_channels():
         )
 
     with extract_lock:
-        now = datetime.utcnow()
+        now = pendulum.now()
         # Se completato da meno di 1 ora, ritorna solo lo stato completato
-        if extract_status["completed_at"] and (now - extract_status["completed_at"]) < timedelta(hours=1):
+        if extract_status["completed_at"] and (now - extract_status["completed_at"]) < pendulum.duration(hours=1):
             return jsonify({
                 "status": "completed",
                 "processed": extract_status["processed"],
