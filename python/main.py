@@ -25,17 +25,17 @@ from models import (
     ValueMapping,
     ValueMappingList,
 )
-from store_data import engine, SessionLocal
 from models.generic_sappo_logics import extract_and_store
-from models.communication_channels import get_total_communication_channels
 
 # --- Flask App Initialization ---
 app = FastAPI()
 status_locks = {}
+tags_metadata = []
+
 # --- SOAP API Endpoints ---
 
   
-    # --- FastAPI Routes ---
+# --- FastAPI Routes ---
 
 @app.get("/")
 async def root():
@@ -46,17 +46,17 @@ async def extract_all():
     """Endpoint to trigger extraction for all defined object types."""
     logger.info("Starting extraction for all object types...")
     results = {}
-    results["integrated_configurations"] = extract_integrated_configurations().get_json()
-    results["communication_channels"] = extract_communication_channels().get_json()
-    results["sender_agreements"] = extract_sender_agreements().get_json()
-    results["receiver_agreements"] = extract_receiver_agreements().get_json()
-    results["value_mappings"] = extract_value_mappings().get_json()
+    results["integrated_configurations_list"] = extract_integrated_configurations_list().get_json()
+    results["communication_channels_list"] = extract_communication_channels_list().get_json()
+    results["sender_agreements_list"] = extract_sender_agreements_list().get_json()
+    results["receiver_agreements_list"] = extract_receiver_agreements_list().get_json()
+    results["value_mappings_list"] = extract_value_mappings_list().get_json()
     logger.info("Finished extracting all object types.")
-    return jsonify({"status": "completed", "results": results})
+    return {"status": "completed", "results": results}
 
-
-@app.get("/extract/integrated_configurations")
-async def extract_integrated_configurations():
+ 
+@app.get("/extract/integrated_configurations_list")
+async def extract_integrated_configurations_list():
     """Extracts Integrated Configuration objects."""
     def build_row(item):
         return IntegratedConfigurationsList(
@@ -75,25 +75,45 @@ async def extract_integrated_configurations():
         build_row
     )
 
-
-
-# Stato globale per la progressione e il caching
-extract_status = {
-    "running": False,
-    "completed_at": None,
-    "processed": 0,
-    "total": 0,
-    "result": None
-}
+tags_metadata.append({
+    "name": "/extract/full/",
+    "description": """
+    http://127.0.0.1:5001/extract/full/communication_channels/status
+    http://127.0.0.1:5001/extract/full/communication_channels/complete
+    http://127.0.0.1:5001/extract/full/communication_channels/refresh
+    http://127.0.0.1:5001/extract/full/integration_configurations/refresh
+""",
+})
+@app.get("/extract/full/{entity}/{action_type}")
+async def extract_full_entities(entity:str,action_type:str):
+    """Asynchronous extraction of Integrated Configuration objects with progress tracking."""
+    procedure_name = f"{myself()}_{entity}"
+    logger.info(f"🔍 Richiesta di estrazione ricevuta per procedura: {procedure_name}/{action_type}" )
+    import models
  
+    def dyn_import_module(submodule_name):
+        from importlib import import_module
+        import models
+        import sys
+        """Ottiene una classe usando getattr"""
+        try:
+            r = import_module(f"models.{submodule_name}")
+            if r is None:
+                raise ValueError(f"❗️Modulo '{submodule_name}' non trovata")  
+            return r
+        except AttributeError:
+            raise ValueError(f"❗️Modulo '{submodule_name}' non trovata")  
 
-
-@app.get("/extract/communication_channels/{type}")
-async def extract_communication_channels(type:str):
-    """Asynchronous extraction of Communication Channel objects with progress tracking."""
-    procedure_name = myself()
-    logger.info(f"🔍 Richiesta di estrazione ricevuta per procedura: {procedure_name}/{type}" )
-    from models.communication_channels import extraction_task
+    # METODO 1: Usando getattr()
+    def get_class_with_getattr(class_name):
+        import models
+        """Ottiene una classe usando getattr"""
+        try:
+            return getattr(models, class_name)
+        except AttributeError:
+            raise ValueError(f"❗️Classe '{class_name}' non trovata")
+    
+    entity_mdl = dyn_import_module(entity)
 
     lock = status_locks.setdefault(procedure_name, asyncio.Lock())
     
@@ -144,14 +164,14 @@ async def extract_communication_channels(type:str):
         
     
 
-    asyncio.create_task(extraction_task(procedure_name, lock))
+    asyncio.create_task(entity_mdl.extraction_task(procedure_name, lock))
     # Avvia il task in un thread separato
     #threading.Thread(target=extraction_task, daemon=True).start()
 
     return {
         "status": "started",
         "processed": 0,
-        "total": get_total_communication_channels()
+        "total": entity_mdl.get_total()
     }
 
 
@@ -179,7 +199,7 @@ async def extract_communication_channels_list():
 
 
 @app.get("/extract/sender_agreements")
-async def extract_sender_agreements():
+async def extract_sender_agreements_list():
     """Extracts Sender Agreement objects."""
     def build_row(item):
         return SenderAgreementList(
@@ -200,7 +220,7 @@ async def extract_sender_agreements():
     ) 
 
 @app.get("/extract/value_mappings")
-async def extract_receiver_agreements():
+async def extract_receiver_agreements_list():
     """Extracts Receiver Agreement objects."""
     def build_row(item):
         return ReceiverAgreementList(

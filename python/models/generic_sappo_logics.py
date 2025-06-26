@@ -1,6 +1,6 @@
 from tqdm import tqdm
 from bs4 import BeautifulSoup
-from store_data import SessionLocal,engine
+from models import SessionLocal,engine
 from loguru import logger
 from requests.auth import HTTPBasicAuth
 import requests

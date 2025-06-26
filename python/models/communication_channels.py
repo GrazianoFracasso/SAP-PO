@@ -1,4 +1,4 @@
-from models import CommunicationChannel,CommunicationChannelList
+from models import CommunicationChannel,CommunicationChannelList, Base,engine,SessionLocal
 import json
 import hashlib
 from utilities import xml_to_dict
@@ -6,23 +6,30 @@ from pprint import pformat
 import asyncio
 from loguru import logger
 from status_store import get_status, set_status,StatusModel
-from store_data import SessionLocal
 from models.generic_sappo_logics import extract_and_store
 import pendulum
 
+
 def build_row(item):
     xml_str = str(item)
-    UUID_Str = hashlib.sha256(xml_str.encode('utf-8')).hexdigest()
+    ComponentID_ = item.find("ComponentID").get_text(strip=True) if item.find("ComponentID") else ""
+    ChannelID_ = item.find("ChannelID").get_text(strip=True) if item.find("ChannelID") else ""
+    PartyID_ = item.find("PartyID").get_text(strip=True) if item.find("PartyID") else ""
+    uid = ComponentID_+ComponentID_+ChannelID_
+    UUID_Str = hashlib.sha256(uid.encode('utf-8')).hexdigest()
     xml_json = xml_to_dict(item)
     json_str = json.dumps(xml_json, ensure_ascii=False, indent=2)
     return CommunicationChannel(
+        ComponentID = ComponentID_,
+        ChannelID = ChannelID_,
+        PartyID = PartyID_,
         UUID=UUID_Str,
         FullObjectXML=xml_str.strip() if xml_str else "",
         FullObjectJSON=pformat(json_str) if json_str else "",
         FullObject=json_str.strip() if json_str else "",
     )
 
-def get_total_communication_channels():
+def get_total():
     db = SessionLocal()
     items = db.query(CommunicationChannelList).all()
     total = len(items)
@@ -61,6 +68,7 @@ async def extraction_task(procedure_name: str,lock: asyncio.Lock):
             status = status.model_copy(update={"processed": idx}) 
             await set_status(procedure_name, status)
             results.append(single_result)
+            #break
         status.model_copy(update={
             "result": results,
             "completed_at": str(pendulum.now()),
