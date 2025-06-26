@@ -82,6 +82,7 @@ tags_metadata.append({
     http://127.0.0.1:5001/extract/full/communication_channels/complete
     http://127.0.0.1:5001/extract/full/communication_channels/refresh
     http://127.0.0.1:5001/extract/full/integration_configurations/refresh
+    http://127.0.0.1:5001/extract/full/value_mappings/refresh
 """,
 })
 @app.get("/extract/full/{entity}/{action_type}")
@@ -196,8 +197,6 @@ async def extract_communication_channels_list():
         build_row
     )
  
-
-
 @app.get("/extract/sender_agreements")
 async def extract_sender_agreements_list():
     """Extracts Sender Agreement objects."""

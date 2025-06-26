@@ -12,7 +12,8 @@ from pprint import pformat,pprint
 import pendulum
 from config import USERNAME,PASSWORD,HOST
 import os
-
+import models
+import pydash as _
 
 # --- SOAP Request Handling ---
 HEADERS = {
@@ -57,7 +58,9 @@ def send_soap_request(url, payload):
 
         return response.text
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error during SOAP request to {url}: {e}")
+        
+        logger.error(f"❌ Error during SOAP request to {url}: {e}")
+        logger.error((payload.encode('utf-8').strip()))
         raise
     
 def get_payload(endpoint_key, query_tag, item=None):
@@ -73,7 +76,7 @@ def get_payload(endpoint_key, query_tag, item=None):
             </soapenv:Envelope>
             """
         return payload
-    elif 'CommunicationChannel' == endpoint_key:
+    elif endpoint_key in models.get_model_classes(): #['CommunicationChannel','IntegratedConfiguration']:
         # For list endpoints, we use a different query tag
         payload = f"""
             <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:p1="http://sap.com/xi/BASIS">
@@ -81,22 +84,27 @@ def get_payload(endpoint_key, query_tag, item=None):
             <soapenv:Body>
                 <p1:{query_tag}  > 
                     <ReadContext>User</ReadContext>
-                    <CommunicationChannelID>"""
+                    <{endpoint_key}ID>"""
         
         logger.info(f"Building payload for {endpoint_key} with query tag {query_tag} and item {pformat(item)}")
-        for column in item.__table__.columns:
-            k = column.name
-            v = getattr(item, k)
-            logger.info(f"Processing key: {k}, value: {v}")
-            if v is not None:
-                payload += f" <{k}>{v}</{k}>" 
         
-        payload += f"""
-                    </CommunicationChannelID>
+        if hasattr(item,'__table__'):
+            for column in item.__table__.columns:
+                k = column.name
+                v = getattr(item, k)
+                logger.info(f"Processing key: {k}, value: {v}")
+                if v is not None:
+                    payload += f" <{k}>{v}</{k}>" 
+        else:
+            logger.info(f"Processing  value: {item}")
+            payload += f"{item}"
+        
+        payload += f"""</{endpoint_key}ID>
                 </p1:{query_tag}>
             </soapenv:Body>
             </soapenv:Envelope>
             """
+        logger.info(payload.strip())
         return payload.strip()
 
 # --- Generic Extraction Logic ---
@@ -109,15 +117,7 @@ def extract_and_store(endpoint_key, query_tag, result_tag, model_cls, row_builde
     db = SessionLocal()
     logger.info(f"🚀 Starting extraction for {endpoint_key}...")
     try:
-        # The QueryRequest payload is common across many Directory APIs
-        payload = f"""
-        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://sap.com/xi/BASIS">
-           <soapenv:Header/>
-           <soapenv:Body>
-              <web:{query_tag}/>
-           </soapenv:Body>
-        </soapenv:Envelope>
-        """
+
         payload = get_payload(endpoint_key, query_tag,item)
         xml_response = send_soap_request(SOAP_ENDPOINTS[endpoint_key], payload)
         soup = BeautifulSoup(xml_response, "lxml-xml")

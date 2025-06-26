@@ -142,8 +142,11 @@ class ReceiverAgreement(Base):
 
 class ValueMapping(Base):
     __tablename__ = 'ValueMappings'
-    GroupID = Column(String, primary_key=True)
-    Description = Column(String)
+    ValueMappingID = Column(String, primary_key=True)
+    UUID = Column(String)
+    FullObjectXML = Column(Text)
+    FullObjectJSON = Column(Text)
+    FullObject = Column(Text)  # This can be used to store the full object in a different format if needed
 
 class ValueMappingList(Base):
     __tablename__ = 'ValueMappingList'
