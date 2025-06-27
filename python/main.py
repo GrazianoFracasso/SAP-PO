@@ -8,21 +8,12 @@ from utilities import myself
 from config import *
 from models import *
 from status_store import get_status, set_status,StatusModel
-from pydantic import BaseModel
-from typing import Optional
 import uvicorn
-from utilities import (
-    xml_to_dict,
-
-)
 from models import (
-    IntegratedConfiguration,
     IntegratedConfigurationsList,
-    CommunicationChannel,
     CommunicationChannelList,
     SenderAgreementList,
     ReceiverAgreementList,
-    ValueMapping,
     ValueMappingList,
 )
 from models.generic_sappo_logics import extract_and_store
@@ -83,6 +74,8 @@ tags_metadata.append({
     http://127.0.0.1:5001/extract/full/communication_channels/refresh
     http://127.0.0.1:5001/extract/full/integration_configurations/refresh
     http://127.0.0.1:5001/extract/full/value_mappings/refresh
+    http://127.0.0.1:5001/extract/full/sender_agreements/refresh
+    http://127.0.0.1:5001/extract/full/sender_agreements/refresh
 """,
 })
 @app.get("/extract/full/{entity}/{action_type}")
@@ -175,7 +168,6 @@ async def extract_full_entities(entity:str,action_type:str):
         "total": entity_mdl.get_total()
     }
 
-
 @app.get("/extract/communication_channels_list")
 async def extract_communication_channels_list():
     """Extracts Communication Channel objects."""
@@ -218,7 +210,7 @@ async def extract_sender_agreements_list():
         build_row
     ) 
 
-@app.get("/extract/value_mappings")
+@app.get("/extract/receiver_agreements")
 async def extract_receiver_agreements_list():
     """Extracts Receiver Agreement objects."""
     def build_row(item):
@@ -237,23 +229,6 @@ async def extract_receiver_agreements_list():
         ReceiverAgreementList,
         build_row
     ) 
-
-@app.get("/extract/value_mappings")
-async def extract_value_mappings():
-    """Extracts Value Mapping objects."""
-    def build_row(item):
-        # Note: The PDF indicates ValueMappingID and GroupName are part of the response.
-        return ValueMapping(
-            GroupID=item.find("ValueMappingID").get_text(strip=True) if item.find("ValueMappingID") else "",
-            Description=item.find("GroupName").get_text(strip=True) if item.find("GroupName") else ""
-        )
-    return extract_and_store(
-        "ValueMapping",
-        "ValueMappingQueryRequest",
-        "ValueMapping",
-        ValueMapping,
-        build_row
-    )
 
 @app.get("/extract/value_mappings_list")
 async def extract_value_mappings_list():

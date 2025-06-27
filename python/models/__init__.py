@@ -107,7 +107,6 @@ class CommunicationChannel(Base):
     FullObjectJSON = Column(Text)
     FullObject = Column(Text)  # This can be used to store the full object in a different format if needed
 
-
 class CommunicationChannelList(Base):
     __tablename__ = 'CommunicationChannelList'
     ComponentID = Column(String, primary_key=True)
@@ -123,6 +122,19 @@ class SenderAgreementList(Base):
     ReceiverPartyID = Column(String, primary_key=True)
     ReceiverComponentID = Column(String, primary_key=True)
 
+class SenderAgreement(Base):
+    __tablename__ = 'SenderAgreements'
+    SenderPartyID = Column(String, primary_key=True)
+    SenderComponentID = Column(String, primary_key=True)
+    InterfaceName = Column(String, primary_key=True)
+    InterfaceNamespace = Column(String, primary_key=True)
+    ReceiverPartyID = Column(String, primary_key=True)
+    ReceiverComponentID = Column(String, primary_key=True)
+    UUID = Column(String, primary_key=True)
+    FullObjectXML = Column(Text)
+    FullObjectJSON = Column(Text)
+    FullObject = Column(Text)  # This can be used to store the full object in a different format if needed
+
 class ReceiverAgreementList(Base):
     __tablename__ = 'ReceiverAgreementList'
     SenderPartyID = Column(String, primary_key=True)
@@ -134,11 +146,16 @@ class ReceiverAgreementList(Base):
 
 class ReceiverAgreement(Base):
     __tablename__ = 'ReceiverAgreements'
+    SenderPartyID = Column(String, primary_key=True)
     SenderComponentID = Column(String, primary_key=True)
-    ReceiverComponentID = Column(String, primary_key=True)
     InterfaceName = Column(String, primary_key=True)
     InterfaceNamespace = Column(String, primary_key=True)
-    ChannelID = Column(String)
+    ReceiverPartyID = Column(String, primary_key=True)
+    ReceiverComponentID = Column(String, primary_key=True)
+    UUID = Column(String, primary_key=True)
+    FullObjectXML = Column(Text)
+    FullObjectJSON = Column(Text)
+    FullObject = Column(Text)  # This can be used to store the full object in a different format if needed
 
 class ValueMapping(Base):
     __tablename__ = 'ValueMappings'
