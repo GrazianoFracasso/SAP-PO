@@ -71,11 +71,11 @@ tags_metadata.append({
     "description": """
     http://127.0.0.1:5001/extract/full/communication_channels/status
     http://127.0.0.1:5001/extract/full/communication_channels/complete
-    http://127.0.0.1:5001/extract/full/communication_channels/refresh
+    ttp://127.0.0.1:5001/extract/full/communication_channels/refreshh
     http://127.0.0.1:5001/extract/full/integration_configurations/refresh
     http://127.0.0.1:5001/extract/full/value_mappings/refresh
     http://127.0.0.1:5001/extract/full/sender_agreements/refresh
-    http://127.0.0.1:5001/extract/full/sender_agreements/refresh
+    http://127.0.0.1:5001/extract/full/receiver_agreements/refresh
 """,
 })
 @app.get("/extract/full/{entity}/{action_type}")
