@@ -36,12 +36,23 @@ async def root():
 async def extract_all():
     """Endpoint to trigger extraction for all defined object types."""
     logger.info("Starting extraction for all object types...")
-    results = {}
-    results["integrated_configurations_list"] = extract_integrated_configurations_list()#.get_json()
-    results["communication_channels_list"] = extract_communication_channels_list()#.get_json()
-    results["sender_agreements_list"] = extract_sender_agreements_list()#.get_json()
-    results["receiver_agreements_list"] = extract_receiver_agreements_list()#.get_json()
-    results["value_mappings_list"] = extract_value_mappings_list()#.get_json()
+
+    result_keys = [
+        "integrated_configurations_list",
+        "communication_channels_list",
+        "sender_agreements_list",
+        "receiver_agreements_list",
+        "value_mappings_list",
+    ]
+    result_values = await asyncio.gather(
+        extract_integrated_configurations_list(),
+        extract_communication_channels_list(),
+        extract_sender_agreements_list(),
+        extract_receiver_agreements_list(),
+        extract_value_mappings_list(),
+    )
+
+    results = dict(zip(result_keys, result_values))
     logger.info("Finished extracting all object types.")
     return {"status": "completed", "results": results}
 
