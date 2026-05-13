@@ -76,8 +76,7 @@ async def extraction_task(procedure_name: str,lock: asyncio.Lock, environment=No
             status = status.model_copy(update={"processed": idx}) 
             await set_status(procedure_name, status)
             results.append(single_result)
-            break
-        status.model_copy(update={
+        status = status.model_copy(update={
             "result": results,
             "completed_at": str(pendulum.now()),
             "running": False

@@ -102,6 +102,39 @@ tags_metadata.append({
     http://127.0.0.1:5001/extract/full/receiver_agreements/refresh
 """,
 })
+@app.get("/extract/full/{environment}/{entity_list}")
+@app.get("/extract/full/{entity_list}")
+async def extract_full_entity_list(entity_list: str, environment: str = DEFAULT_ENVIRONMENT):
+    """Refresh list endpoints synchronously and return only after extraction completes."""
+    if entity_list in {"status", "complete", "refresh"}:
+        return await extract_full_entities(environment, entity_list, DEFAULT_ENVIRONMENT)
+
+    environment = resolve_environment(environment)
+    list_extractors = {
+        "communication_channels_list": extract_communication_channels_list,
+        "integrated_configurations_list": extract_integrated_configurations_list,
+        "integration_configurations_list": extract_integrated_configurations_list,
+        "sender_agreements_list": extract_sender_agreements_list,
+        "sender_agreements": extract_sender_agreements_list,
+        "receiver_agreements_list": extract_receiver_agreements_list,
+        "receiver_agreements": extract_receiver_agreements_list,
+        "value_mappings_list": extract_value_mappings_list,
+    }
+
+    extractor = list_extractors.get(entity_list)
+    if not extractor:
+        raise HTTPException(status_code=404, detail=f"Lista '{entity_list}' non trovata")
+
+    logger.info(f"🚀 Refresh lista sincrono per '{entity_list}' su environment '{environment}'")
+    result = await extractor(environment)
+    logger.info(f"✅ Refresh lista completato per '{entity_list}' su environment '{environment}'")
+    return {
+        "status": "completed",
+        "environment": environment,
+        "entity": entity_list,
+        "result": result,
+    }
+
 @app.get("/extract/full/{environment}/{entity}/{action_type}")
 @app.get("/extract/full/{entity}/{action_type}")
 async def extract_full_entities(entity:str,action_type:str, environment: str = DEFAULT_ENVIRONMENT):
@@ -150,18 +183,18 @@ async def extract_full_entities(entity:str,action_type:str, environment: str = D
                     "total": 0
                 }
             percent = (status.processed / status.total  * 100) if status.total  else 0
-            logger.info("⏳ Estrazione in corso: {}/{} ({:.2f}%)", status.processed, status.total, percent)
+            status_name = "running" if status.running else "completed"
+            logger.info("⏳ Stato estrazione: {}/{} ({:.2f}%) - {}", status.processed, status.total, percent, status_name)
             return {
-                "status": "running",
+                "status": status_name,
                 "environment": environment,
                 "percent_complete": round(percent, 2),
                 "processed": status.processed,
                 "total": status.total 
             }
         
-        # Se completato da meno di 1 ora, ritorna solo lo stato completato
         if status:
-            if status.completed_at and (now - pendulum.parse(status.completed_at)) < pendulum.duration(days=1):
+            if action_type != "refresh" and status.completed_at and (now - pendulum.parse(status.completed_at)) < pendulum.duration(days=1):
                 logger.info("🕒 Estrazione già completata di recente (meno di 1 giorno fa).")
                 return {
                     "status": "completed",
@@ -193,18 +226,15 @@ async def extract_full_entities(entity:str,action_type:str, environment: str = D
         nmw = StatusModel(**new_status)
         await set_status(procedure_name, nmw)
         
-    
+        await entity_mdl.extraction_task(procedure_name, lock, environment)
+        final_status = await get_status(procedure_name)
 
-    asyncio.create_task(entity_mdl.extraction_task(procedure_name, lock, environment))
-    # Avvia il task in un thread separato
-    #threading.Thread(target=extraction_task, daemon=True).start()
-
-    return {
-        "status": "started",
-        "environment": environment,
-        "processed": 0,
-        "total": entity_mdl.get_total()
-    }
+        return {
+            "status": "completed",
+            "environment": environment,
+            "processed": final_status.processed if final_status else 0,
+            "total": final_status.total if final_status else entity_mdl.get_total()
+        }
 
 @app.get("/extract/{environment}/communication_channels_list")
 @app.get("/extract/communication_channels_list")
@@ -314,4 +344,3 @@ if __name__ == "__main__":
 
     uvicorn.run("main:app",port=5001,reload=True)
     #app.run(debug=True, port=5001)
-
