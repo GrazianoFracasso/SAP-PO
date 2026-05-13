@@ -10,7 +10,7 @@ import pandas as pd
 from tabulate import tabulate
 from pprint import pformat,pprint
 import pendulum
-from config import USERNAME,PASSWORD,HOST
+from config import get_environment_config
 import os
 import models
 import pydash as _
@@ -21,27 +21,34 @@ HEADERS = {
     "SOAPAction": "http://sap.com/xi/WebService/soap1.1"
 }
 
-SOAP_ENDPOINTS = {
-    "IntegratedConfigurationsList": f"{HOST}/IntegratedConfigurationInService/IntegratedConfigurationInImplBean",
-    "IntegratedConfiguration": f"{HOST}/IntegratedConfigurationInService/IntegratedConfigurationInImplBean",
-    "CommunicationChannelList": f"{HOST}/CommunicationChannelInService/CommunicationChannelInImplBean",
-    "CommunicationChannel": f"{HOST}/CommunicationChannelInService/CommunicationChannelInImplBean",
-    "SenderAgreementList": f"{HOST}/SenderAgreementInService/SenderAgreementInImplBean",
-    "SenderAgreement": f"{HOST}/SenderAgreementInService/SenderAgreementInImplBean",
-    "ReceiverAgreementList": f"{HOST}/ReceiverAgreementInService/ReceiverAgreementInImplBean",
-    "ReceiverAgreement": f"{HOST}/ReceiverAgreementInService/ReceiverAgreementInImplBean",
-    "ValueMappingList": f"{HOST}/ValueMappingInService/ValueMappingInImplBean",
-    "ValueMapping": f"{HOST}/ValueMappingInService/ValueMappingInImplBean"
+SOAP_ENDPOINT_PATHS = {
+    "IntegratedConfigurationsList": "/IntegratedConfigurationInService/IntegratedConfigurationInImplBean",
+    "IntegratedConfiguration": "/IntegratedConfigurationInService/IntegratedConfigurationInImplBean",
+    "CommunicationChannelList": "/CommunicationChannelInService/CommunicationChannelInImplBean",
+    "CommunicationChannel": "/CommunicationChannelInService/CommunicationChannelInImplBean",
+    "SenderAgreementList": "/SenderAgreementInService/SenderAgreementInImplBean",
+    "SenderAgreement": "/SenderAgreementInService/SenderAgreementInImplBean",
+    "ReceiverAgreementList": "/ReceiverAgreementInService/ReceiverAgreementInImplBean",
+    "ReceiverAgreement": "/ReceiverAgreementInService/ReceiverAgreementInImplBean",
+    "ValueMappingList": "/ValueMappingInService/ValueMappingInImplBean",
+    "ValueMapping": "/ValueMappingInService/ValueMappingInImplBean"
 }
 
-def send_soap_request(url, payload):
+
+def get_soap_endpoint(endpoint_key, environment=None):
+    config = get_environment_config(environment)
+    return f"{config.host}{SOAP_ENDPOINT_PATHS[endpoint_key]}"
+
+
+def send_soap_request(url, payload, environment=None):
     """Sends a SOAP request and returns the response text."""
+    config = get_environment_config(environment)
     try:
         response = requests.post(
             url,
             data=payload.encode('utf-8'),
             headers=HEADERS,
-            auth=HTTPBasicAuth(USERNAME, PASSWORD)
+            auth=HTTPBasicAuth(config.username, config.password)
         )
         response.raise_for_status() # Raises an HTTPError for bad responses (4XX or 5XX)
 
@@ -108,7 +115,7 @@ def get_payload(endpoint_key, query_tag, item=None):
         return payload.strip()
 
 # --- Generic Extraction Logic ---
-def extract_and_store(endpoint_key, query_tag, result_tag, model_cls, row_builder, item=None, df_log = True):
+def extract_and_store(endpoint_key, query_tag, result_tag, model_cls, row_builder, item=None, df_log = True, environment=None):
     """
     Generic function to fetch data from a SOAP endpoint, parse it, and store it in the database.
     """
@@ -118,8 +125,9 @@ def extract_and_store(endpoint_key, query_tag, result_tag, model_cls, row_builde
     logger.info(f"🚀 Starting extraction for {endpoint_key}...")
     try:
 
+        config = get_environment_config(environment)
         payload = get_payload(endpoint_key, query_tag,item)
-        xml_response = send_soap_request(SOAP_ENDPOINTS[endpoint_key], payload)
+        xml_response = send_soap_request(get_soap_endpoint(endpoint_key, config.name), payload, config.name)
         soup = BeautifulSoup(xml_response, "lxml-xml")
         results = soup.find_all(result_tag)
         logger.info(f"Found {len(results)} items for {endpoint_key} with tag '{result_tag}'.")

@@ -1,5 +1,5 @@
 #from flask import Flask, jsonify
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from loguru import logger
 import pendulum
 from prettyprinter  import pprint,pformat
@@ -23,6 +23,13 @@ app = FastAPI()
 status_locks = {}
 tags_metadata = []
 
+
+def resolve_environment(environment: str) -> str:
+    try:
+        return get_environment_config(environment).name
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 # --- SOAP API Endpoints ---
 
   
@@ -32,10 +39,12 @@ tags_metadata = []
 async def root():
     return {"message": "OK"}
 
+@app.get("/extract/{environment}/all")
 @app.get("/extract/all")
-async def extract_all():
+async def extract_all(environment: str = DEFAULT_ENVIRONMENT):
     """Endpoint to trigger extraction for all defined object types."""
-    logger.info("Starting extraction for all object types...")
+    environment = resolve_environment(environment)
+    logger.info(f"Starting extraction for all object types on environment '{environment}'...")
 
     result_keys = [
         "integrated_configurations_list",
@@ -45,21 +54,23 @@ async def extract_all():
         "value_mappings_list",
     ]
     result_values = await asyncio.gather(
-        extract_integrated_configurations_list(),
-        extract_communication_channels_list(),
-        extract_sender_agreements_list(),
-        extract_receiver_agreements_list(),
-        extract_value_mappings_list(),
+        extract_integrated_configurations_list(environment),
+        extract_communication_channels_list(environment),
+        extract_sender_agreements_list(environment),
+        extract_receiver_agreements_list(environment),
+        extract_value_mappings_list(environment),
     )
 
     results = dict(zip(result_keys, result_values))
-    logger.info("Finished extracting all object types.")
-    return {"status": "completed", "results": results}
+    logger.info(f"Finished extracting all object types on environment '{environment}'.")
+    return {"status": "completed", "environment": environment, "results": results}
 
  
+@app.get("/extract/{environment}/integrated_configurations_list")
 @app.get("/extract/integrated_configurations_list")
-async def extract_integrated_configurations_list():
+async def extract_integrated_configurations_list(environment: str = DEFAULT_ENVIRONMENT):
     """Extracts Integrated Configuration objects."""
+    environment = resolve_environment(environment)
     def build_row(item):
         return IntegratedConfigurationsList(
             SenderPartyID=item.find("SenderPartyID").get_text(strip=True) if item.find("SenderPartyID") else "",
@@ -74,13 +85,15 @@ async def extract_integrated_configurations_list():
         "IntegratedConfigurationQueryRequest",
         "IntegratedConfigurationID",
         IntegratedConfigurationsList,
-        build_row
+        build_row,
+        environment=environment
     )
 
 tags_metadata.append({
     "name": "/extract/full/",
     "description": """
     http://127.0.0.1:5001/extract/full/communication_channels/status
+    http://127.0.0.1:5001/extract/full/pod/communication_channels/status
     http://127.0.0.1:5001/extract/full/communication_channels/complete
     ttp://127.0.0.1:5001/extract/full/communication_channels/refreshh
     http://127.0.0.1:5001/extract/full/integration_configurations/refresh
@@ -89,10 +102,12 @@ tags_metadata.append({
     http://127.0.0.1:5001/extract/full/receiver_agreements/refresh
 """,
 })
+@app.get("/extract/full/{environment}/{entity}/{action_type}")
 @app.get("/extract/full/{entity}/{action_type}")
-async def extract_full_entities(entity:str,action_type:str):
+async def extract_full_entities(entity:str,action_type:str, environment: str = DEFAULT_ENVIRONMENT):
     """Asynchronous extraction of Integrated Configuration objects with progress tracking."""
-    procedure_name = f"{myself()}_{entity}"
+    environment = resolve_environment(environment)
+    procedure_name = f"{myself()}_{environment}_{entity}"
     logger.info(f"🔍 Richiesta di estrazione ricevuta per procedura: {procedure_name}/{action_type}" )
     import models
  
@@ -126,11 +141,19 @@ async def extract_full_entities(entity:str,action_type:str):
         status = await get_status(procedure_name)
         now = pendulum.now()
 
-        if type == 'status' or type == 'complete':
+        if action_type == 'status' or action_type == 'complete':
+            if not status:
+                return {
+                    "status": "not_found",
+                    "environment": environment,
+                    "processed": 0,
+                    "total": 0
+                }
             percent = (status.processed / status.total  * 100) if status.total  else 0
             logger.info("⏳ Estrazione in corso: {}/{} ({:.2f}%)", status.processed, status.total, percent)
             return {
                 "status": "running",
+                "environment": environment,
                 "percent_complete": round(percent, 2),
                 "processed": status.processed,
                 "total": status.total 
@@ -142,6 +165,7 @@ async def extract_full_entities(entity:str,action_type:str):
                 logger.info("🕒 Estrazione già completata di recente (meno di 1 giorno fa).")
                 return {
                     "status": "completed",
+                    "environment": environment,
                     "processed": status.processed,
                     "total": status.total 
                 }
@@ -151,6 +175,7 @@ async def extract_full_entities(entity:str,action_type:str):
                 logger.info("⏳ Estrazione in corso: {}/{} ({:.2f}%)", status.processed, status.total, percent)
                 return {
                     "status": "running",
+                    "environment": environment,
                     "percent_complete": round(percent, 2),
                     "processed": status.processed,
                     "total": status.total 
@@ -159,6 +184,7 @@ async def extract_full_entities(entity:str,action_type:str):
         logger.info("🚀 Avvio nuova estrazione asincrona per '{}'", procedure_name)
         new_status = {
             "running": True,
+            "environment": environment,
             "processed": 0,
             "total": 0,
             "result": None,
@@ -169,19 +195,22 @@ async def extract_full_entities(entity:str,action_type:str):
         
     
 
-    asyncio.create_task(entity_mdl.extraction_task(procedure_name, lock))
+    asyncio.create_task(entity_mdl.extraction_task(procedure_name, lock, environment))
     # Avvia il task in un thread separato
     #threading.Thread(target=extraction_task, daemon=True).start()
 
     return {
         "status": "started",
+        "environment": environment,
         "processed": 0,
         "total": entity_mdl.get_total()
     }
 
+@app.get("/extract/{environment}/communication_channels_list")
 @app.get("/extract/communication_channels_list")
-async def extract_communication_channels_list():
+async def extract_communication_channels_list(environment: str = DEFAULT_ENVIRONMENT):
     """Extracts Communication Channel objects."""
+    environment = resolve_environment(environment)
     def build_row(item):
         # For CommunicationChannel, we need to read the full object to get all details
         # This is a simplified version; a full implementation might read each channel individually.
@@ -197,12 +226,15 @@ async def extract_communication_channels_list():
         "CommunicationChannelQueryRequest",
         "CommunicationChannelID",
         CommunicationChannelList,
-        build_row
+        build_row,
+        environment=environment
     )
  
+@app.get("/extract/{environment}/sender_agreements")
 @app.get("/extract/sender_agreements")
-async def extract_sender_agreements_list():
+async def extract_sender_agreements_list(environment: str = DEFAULT_ENVIRONMENT):
     """Extracts Sender Agreement objects."""
+    environment = resolve_environment(environment)
     def build_row(item):
         return SenderAgreementList(
             SenderPartyID=item.find("SenderPartyID").get_text(strip=True) if item.find("SenderPartyID") else "",
@@ -218,12 +250,15 @@ async def extract_sender_agreements_list():
         "SenderAgreementQueryRequest",
         "SenderAgreementID",
         SenderAgreementList,
-        build_row
+        build_row,
+        environment=environment
     ) 
 
+@app.get("/extract/{environment}/receiver_agreements")
 @app.get("/extract/receiver_agreements")
-async def extract_receiver_agreements_list():
+async def extract_receiver_agreements_list(environment: str = DEFAULT_ENVIRONMENT):
     """Extracts Receiver Agreement objects."""
+    environment = resolve_environment(environment)
     def build_row(item):
         return ReceiverAgreementList(
             SenderPartyID=item.find("SenderPartyID").get_text(strip=True) if item.find("SenderPartyID") else "",
@@ -238,12 +273,15 @@ async def extract_receiver_agreements_list():
         "ReceiverAgreementQueryRequest",
         "ReceiverAgreementID",
         ReceiverAgreementList,
-        build_row
+        build_row,
+        environment=environment
     ) 
 
+@app.get("/extract/{environment}/value_mappings_list")
 @app.get("/extract/value_mappings_list")
-async def extract_value_mappings_list():
+async def extract_value_mappings_list(environment: str = DEFAULT_ENVIRONMENT):
     """Extracts Value Mapping objects."""
+    environment = resolve_environment(environment)
     def build_row(item):
         #ilog = item.get_text(strip=True) if item else ""
         #logger.info(f"{build_row.__name__} called with item: {item} - {pformat(ilog)}")
@@ -257,7 +295,8 @@ async def extract_value_mappings_list():
         "ValueMappingQueryRequest",
         "ValueMappingID",
         ValueMappingList,
-        build_row
+        build_row,
+        environment=environment
     )
     logger.info(f"✅ Successfully runned {myself()} with result: {pformat(ret)}")
     return ret

@@ -26,6 +26,7 @@ class StatusRecord(Base):
 class StatusModel(BaseModel):
     running: bool
     completed_at: Optional[datetime] = None
+    environment: str
     processed: int = 0
     total: int = 0
     result: Optional[dict] = None

@@ -32,7 +32,7 @@ def get_total():
     total = len(items)
     return total
 
-async def extraction_task(procedure_name: str,lock: asyncio.Lock):
+async def extraction_task(procedure_name: str,lock: asyncio.Lock, environment=None):
     db = SessionLocal()
     try:
         items = db.query(ValueMappingList).all()
@@ -60,7 +60,8 @@ async def extraction_task(procedure_name: str,lock: asyncio.Lock):
                 ValueMapping,
                 build_row,
                 item.ValueMappingID,
-                df_log = False
+                df_log = False,
+                environment=environment
             )
             status = status.model_copy(update={"processed": idx}) 
             await set_status(procedure_name, status)
